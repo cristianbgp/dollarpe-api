@@ -2,7 +2,7 @@
 
 Get dollar to peruvian sol exchange rate
 
-[https://dollarpe-api.onrender.com/exchanges](https://dollarpe-api.onrender.com/exchanges)
+[https://dollarpe-api.cristianbgp.com/exchanges](https://dollarpe-api.cristianbgp.com/exchanges)
 
 ## Development
 
