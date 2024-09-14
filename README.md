@@ -29,4 +29,5 @@ This includes exchanges from:
 - TKambio
 - Roblex
 - Decamoney
-- TuCambista 
+- TuCambista
+- ChapaCambio

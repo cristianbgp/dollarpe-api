@@ -86,6 +86,12 @@ async function getAllData() {
       accessorToSell: (data) => Number(data.offerRate),
       pageUrl: "https://tucambista.pe/",
     }),
+    getData({
+      url: "https://chapacambioscontingencia.blob.core.windows.net/config/tc.json",
+      accessorToBuy: ([data]) => Number(data.MontoCompra),
+      accessorToSell: ([data]) => Number(data.MontoVenta),
+      pageUrl: "https://chapacambio.com/",
+    }),
   ]);
   const dollar = {} as Record<string, DataResult | undefined>;
   [
@@ -95,6 +101,7 @@ async function getAllData() {
     dollar.roblex,
     dollar.decamoney,
     dollar.tucambista,
+    dollar.chapacambio,
   ] = allData.map((result) =>
     result.status === "fulfilled" ? result.value : undefined
   );
