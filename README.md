@@ -1,3 +1,5 @@
+# dollarpe-api
+
 To install dependencies:
 ```sh
 bun install
