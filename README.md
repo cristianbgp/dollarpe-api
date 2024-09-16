@@ -22,6 +22,12 @@ open http://localhost:3000
 
 `/exchanges`
 
+You can add sorting to get the better values for buy or sell with query param sort
+
+`/exchanges?sort=buy` DEFAULT
+
+`/exchanges?sort=sell`
+
 This includes exchanges from:
 
 - Rextie

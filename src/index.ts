@@ -5,6 +5,9 @@ import sortCriteriaGenerator from "./utils/sort-criteria-generator";
 const buyCriteriaDesc = sortCriteriaGenerator((item) => item[1].buy, {
   desc: true,
 });
+const sellCriteriaDesc = sortCriteriaGenerator((item) => item[1].sell, {
+  asc: true,
+});
 
 type DataResult = {
   buy: number;
@@ -38,7 +41,7 @@ async function getData({
   return { buy: accessorToBuy(data), sell: accessorToSell(data), pageUrl };
 }
 
-async function getAllData() {
+async function getAllData(sort: "buy" | "sell" = "buy") {
   const allData = await Promise.allSettled([
     getData({
       url: "https://app.rextie.com/api/v1/fxrates/rate/",
@@ -105,9 +108,10 @@ async function getAllData() {
   ] = allData.map((result) =>
     result.status === "fulfilled" ? result.value : undefined
   );
+  const sortCriteria = sort === "buy" ? buyCriteriaDesc : sellCriteriaDesc;
   let result = Object.entries(dollar)
     .filter(([, value]) => value !== undefined)
-    .sort(buyCriteriaDesc);
+    .sort(sortCriteria);
   return result;
 }
 
@@ -120,7 +124,17 @@ app.get("/", (c) => {
 });
 
 app.get("/exchanges", async (c) => {
-  const result = await getAllData();
+  const {
+    sort = "buy",
+  }: {
+    sort?: "buy" | "sell";
+  } = c.req.query();
+  if(sort !== "buy" && sort !== "sell") {
+    c.status(400);
+    return c.json({ error: "Invalid sort criteria" });
+  }
+
+  const result = await getAllData(sort);
   c.header("Cache-Control", "public, s-maxage=60, stale-while-revalidate=30");
   c.status(200);
   return c.json(result);
