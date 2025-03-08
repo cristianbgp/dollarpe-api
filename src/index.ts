@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import sortCriteriaGenerator from "./utils/sort-criteria-generator";
+import { fetchHTMLAndExtract } from "./utils/fetch-html";
 
 const buyCriteriaDesc = sortCriteriaGenerator((item) => item[1].buy, {
   desc: true,
@@ -9,7 +10,7 @@ const sellCriteriaDesc = sortCriteriaGenerator((item) => item[1].sell, {
   asc: true,
 });
 
-type DataResult = {
+export type DataResult = {
   buy: number;
   sell: number;
   pageUrl: string;
@@ -95,6 +96,12 @@ async function getAllData(sort: "buy" | "sell" = "buy") {
       accessorToSell: ([data]) => Number(data.MontoVenta),
       pageUrl: "https://chapacambio.com/",
     }),
+    fetchHTMLAndExtract({
+      url: "https://www.cambiomundial.com/appcm/tpc/tipocambio/index",
+      accessorToBuy: (document) => Number(document.querySelector<HTMLInputElement>("#txtValorCompra")?.value),
+      accessorToSell: (document) => Number(document.querySelector<HTMLInputElement>("#txtValorVenta")?.value),
+      pageUrl: "https://www.cambiomundial.com"
+    })
   ]);
   const dollar = {} as Record<string, DataResult | undefined>;
   [
@@ -105,6 +112,7 @@ async function getAllData(sort: "buy" | "sell" = "buy") {
     dollar.decamoney,
     dollar.tucambista,
     dollar.chapacambio,
+    dollar.cambiomundial
   ] = allData.map((result) =>
     result.status === "fulfilled" ? result.value : undefined
   );
