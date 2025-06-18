@@ -96,12 +96,12 @@ async function getAllData(sort: "buy" | "sell" = "buy") {
       accessorToSell: ([data]) => Number(data.MontoVenta),
       pageUrl: "https://chapacambio.com/",
     }),
-    fetchHTMLAndExtract({
-      url: "https://www.cambiomundial.com/appcm/tpc/tipocambio/index",
-      querySelectorToBuy: "#txtValorCompra",
-      querySelectorToSell: "#txtValorVenta",
-      pageUrl: "https://www.cambiomundial.com"
-    })
+    // fetchHTMLAndExtract({
+    //   url: "https://www.cambiomundial.com/appcm/tpc/tipocambio/index",
+    //   querySelectorToBuy: "#txtValorCompra",
+    //   querySelectorToSell: "#txtValorVenta",
+    //   pageUrl: "https://www.cambiomundial.com"
+    // })
   ]);
   const dollar = {} as Record<string, DataResult | undefined>;
   [
