@@ -98,8 +98,8 @@ async function getAllData(sort: "buy" | "sell" = "buy") {
     }),
     fetchHTMLAndExtract({
       url: "https://www.cambiomundial.com/appcm/tpc/tipocambio/index",
-      accessorToBuy: (document) => Number(document.querySelector<HTMLInputElement>("#txtValorCompra")?.value),
-      accessorToSell: (document) => Number(document.querySelector<HTMLInputElement>("#txtValorVenta")?.value),
+      querySelectorToBuy: "#txtValorCompra",
+      querySelectorToSell: "#txtValorVenta",
       pageUrl: "https://www.cambiomundial.com"
     })
   ]);
