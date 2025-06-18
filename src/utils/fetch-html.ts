@@ -1,4 +1,3 @@
-import { parseHTML } from "linkedom";
 import { DataResult } from "../index";
 
 export async function fetchHTMLAndExtract({

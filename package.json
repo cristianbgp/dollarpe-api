@@ -6,8 +6,7 @@
     "deploy": "wrangler deploy --minify"
   },
   "dependencies": {
-    "hono": "^4.6.1",
-    "linkedom": "^0.18.9"
+    "hono": "^4.6.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
