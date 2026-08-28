@@ -3,7 +3,22 @@ import { providerNames } from "./providers/types";
 
 const ErrorSchema = z
   .object({
-    error: z.string(),
+    error: z.string().openapi({
+      description: "Backward-compatible copy of the human-readable message.",
+      example: "Invalid sort criteria",
+    }),
+    code: z.string().openapi({
+      description: "Stable machine-readable error code.",
+      example: "INVALID_SORT",
+    }),
+    message: z.string().openapi({
+      description: "Human-readable explanation of the error.",
+      example: "Invalid sort criteria",
+    }),
+    hint: z.string().openapi({
+      description: "A concrete action the client can take to recover.",
+      example: "Use sort=buy or sort=sell.",
+    }),
   })
   .openapi("Error");
 
@@ -37,6 +52,7 @@ const errorResponse = (description: string) => ({
 export const exchangesRoute = createRoute({
   method: "get",
   path: "/exchanges",
+  operationId: "listExchangeRates",
   tags: ["Exchange rates"],
   summary: "List current exchange rates",
   description:
@@ -71,6 +87,7 @@ export const exchangesRoute = createRoute({
 export const officialRateRoute = createRoute({
   method: "get",
   path: "/official-rate",
+  operationId: "getOfficialRate",
   tags: ["Official rate"],
   summary: "Get the official SUNAT exchange rate",
   description:

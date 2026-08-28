@@ -3,6 +3,11 @@ main = "src/index.ts"
 minify = true
 compatibility_date = "2025-01-10"
 
+[[rules]]
+type = "Text"
+globs = ["**/*.md"]
+fallthrough = true
+
 # compatibility_flags = [ "nodejs_compat" ]
 
 # [vars]

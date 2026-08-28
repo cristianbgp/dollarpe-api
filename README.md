@@ -32,6 +32,20 @@ bun run check
 Interactive Swagger documentation is available at [`/docs`](https://dollarpe-api.cristianbgp.com/docs).
 The generated OpenAPI 3.1 document is available at
 [`/openapi.json`](https://dollarpe-api.cristianbgp.com/openapi.json).
+The exact source of this README is available as Markdown at
+[`/readme`](https://dollarpe-api.cristianbgp.com/readme).
+
+The root endpoint is text-only and requires no JavaScript. It returns a concise
+endpoint index as `text/plain` by default. Agents can request the same index as
+Markdown from the canonical URL:
+
+```sh
+curl -H "Accept: text/markdown" https://dollarpe-api.cristianbgp.com/
+```
+
+Negotiated responses include `Vary: Accept, Accept-Encoding`. A request that
+explicitly excludes both `text/plain` and `text/markdown` receives `406 Not
+Acceptable`; the service intentionally does not provide an HTML homepage.
 
 ### `GET /exchanges`
 
@@ -117,3 +131,21 @@ Example response:
 
 Invalid or future dates return `400`. If SUNAT is temporarily unavailable, the
 endpoint returns `503`.
+
+## Errors
+
+API errors use JSON with a stable `code`, a human-readable `message`, and a
+recovery `hint`. The original `error` field remains available for compatibility:
+
+```json
+{
+  "error": "Invalid sort criteria",
+  "code": "INVALID_SORT",
+  "message": "Invalid sort criteria",
+  "hint": "Use sort=buy or sort=sell."
+}
+```
+
+Unknown paths return a real `404` with Markdown links to `/readme`, `/docs`, and
+`/openapi.json`. Clients requesting `application/json` receive the same recovery
+information as a structured JSON error.

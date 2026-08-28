@@ -44,17 +44,179 @@ beforeEach(() => {
   consoleErrorSpy = spyOn(console, "error").mockImplementation(() => {});
 });
 
-test("GET / lists endpoints with and without query parameters", async () => {
+test("GET / keeps the concise endpoint index as plain text by default", async () => {
   const response = await app.request("/");
   const body = await response.text();
 
   expect(response.status).toBe(200);
-  expect(body).toContain("GET /exchanges\n");
-  expect(body).toContain("GET /exchanges?sort=buy|sell");
-  expect(body).toContain("GET /official-rate\n");
-  expect(body).toContain("GET /official-rate?date=YYYY-MM-DD");
-  expect(body).toContain("GET /openapi.json");
-  expect(body).toContain("GET /docs");
+  expect(response.headers.get("Content-Type")).toContain("text/plain");
+  expect(response.headers.get("Vary")).toBe("Accept, Accept-Encoding");
+  expect(body).toBe(
+    "dollarpe by @cristianbgp\n\nGET /exchanges\nGET /exchanges?sort=buy|sell\n\nGET /official-rate\nGET /official-rate?date=YYYY-MM-DD\n\nGET /openapi.json\nGET /docs\nGET /readme"
+  );
+});
+
+test("GET / serves a concise Markdown index when the client prefers it", async () => {
+  const response = await app.request("/", {
+    headers: {
+      Accept: "text/markdown, text/plain;q=0.5",
+    },
+  });
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Type")).toBe(
+    "text/markdown; charset=utf-8"
+  );
+  expect(response.headers.get("Vary")).toBe("Accept, Accept-Encoding");
+  const body = await response.text();
+  expect(body).toStartWith("# dollarpe by @cristianbgp");
+  expect(body).toContain(
+    "[GET /official-rate?date=YYYY-MM-DD](/official-rate?date=YYYY-MM-DD)"
+  );
+  expect(body).toContain("[GET /readme](/readme)");
+  expect(body).not.toContain("## Development");
+});
+
+test("GET / respects q=0 and falls back to an acceptable representation", async () => {
+  const response = await app.request("/", {
+    headers: {
+      Accept: "text/markdown;q=0, text/plain",
+    },
+  });
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Type")).toContain("text/plain");
+});
+
+test("GET / treats a lone q=0 media type as an exclusion", async () => {
+  const response = await app.request("/", {
+    headers: {
+      Accept: "text/markdown;q=0",
+    },
+  });
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Type")).toContain("text/plain");
+});
+
+test("GET / returns 406 when every supported representation has q=0", async () => {
+  const response = await app.request("/", {
+    headers: {
+      Accept: "text/markdown;q=0, text/plain;q=0",
+    },
+  });
+
+  expect(response.status).toBe(406);
+});
+
+test("GET / treats quality parameter names case-insensitively", async () => {
+  const response = await app.request("/", {
+    headers: {
+      Accept: "text/markdown;Q=0",
+    },
+  });
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Type")).toContain("text/plain");
+});
+
+test("GET / rejects incompatible media parameters before choosing Markdown", async () => {
+  const response = await app.request("/", {
+    headers: {
+      Accept: "text/markdown;charset=iso-8859-1, text/plain;q=0.5",
+    },
+  });
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Type")).toContain("text/plain");
+});
+
+test("GET / ignores Accept extensions declared after the quality value", async () => {
+  const response = await app.request("/", {
+    headers: {
+      Accept: "text/markdown;q=0.9;level=1, text/plain;q=0.5",
+    },
+  });
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Type")).toBe(
+    "text/markdown; charset=utf-8"
+  );
+});
+
+test("GET / uses plain text for a browser Accept header through its wildcard", async () => {
+  const response = await app.request("/", {
+    headers: {
+      Accept: "text/html, application/xhtml+xml;q=0.9, */*;q=0.8",
+    },
+  });
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Type")).toContain("text/plain");
+});
+
+test("GET / returns 406 when no text representation is acceptable", async () => {
+  const response = await app.request("/", {
+    headers: {
+      Accept: "text/html",
+    },
+  });
+
+  expect(response.status).toBe(406);
+  expect(response.headers.get("Vary")).toBe("Accept, Accept-Encoding");
+});
+
+test("GET /readme serves the exact README.md source as Markdown", async () => {
+  const response = await app.request("/readme");
+  const readme = await Bun.file(
+    new URL("../README.md", import.meta.url)
+  ).text();
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Type")).toBe(
+    "text/markdown; charset=utf-8"
+  );
+  expect(await response.text()).toBe(readme);
+});
+
+test("unknown routes return a recoverable Markdown 404", async () => {
+  const response = await app.request("/this-path-does-not-exist");
+  const body = await response.text();
+
+  expect(response.status).toBe(404);
+  expect(response.headers.get("Content-Type")).toBe(
+    "text/markdown; charset=utf-8"
+  );
+  expect(body).toStartWith("# Not Found");
+  expect(body).toContain("[/readme](/readme)");
+  expect(body).toContain("[/docs](/docs)");
+  expect(body).toContain("[/openapi.json](/openapi.json)");
+});
+
+test("unknown routes return a structured JSON 404 when requested", async () => {
+  const response = await app.request("/this-path-does-not-exist", {
+    headers: { Accept: "application/json" },
+  });
+
+  expect(response.status).toBe(404);
+  expect(response.headers.get("Content-Type")).toContain("application/json");
+  expect(await response.json()).toEqual({
+    error: "The requested resource was not found",
+    code: "NOT_FOUND",
+    message: "The requested resource was not found",
+    hint: "Use /readme, /docs, or /openapi.json to find a public endpoint.",
+  });
+});
+
+test("unknown routes return 406 when every recovery format is rejected", async () => {
+  const response = await app.request("/this-path-does-not-exist", {
+    headers: {
+      Accept: "application/json;q=0, text/markdown;q=0",
+    },
+  });
+
+  expect(response.status).toBe(406);
+  expect(response.headers.get("Vary")).toBe("Accept, Accept-Encoding");
 });
 
 describe("OpenAPI documentation", () => {
@@ -64,10 +226,21 @@ describe("OpenAPI documentation", () => {
     expect(response.status).toBe(200);
     const document = (await response.json()) as {
       openapi: string;
+      components: {
+        schemas: Record<
+          string,
+          {
+            properties?: Record<string, unknown>;
+            required?: string[];
+          }
+        >;
+      };
       paths: Record<
         string,
         {
           get?: {
+            operationId?: string;
+            description?: string;
             parameters?: Array<{
               name: string;
               in: string;
@@ -87,6 +260,8 @@ describe("OpenAPI documentation", () => {
     ]);
 
     const exchanges = document.paths["/exchanges"].get!;
+    expect(exchanges.operationId).toBe("listExchangeRates");
+    expect(exchanges.description?.length).toBeGreaterThan(0);
     expect(
       exchanges.parameters?.find((parameter) => parameter.name === "sort")
     ).toMatchObject({
@@ -102,6 +277,8 @@ describe("OpenAPI documentation", () => {
     ]);
 
     const officialRate = document.paths["/official-rate"].get!;
+    expect(officialRate.operationId).toBe("getOfficialRate");
+    expect(officialRate.description?.length).toBeGreaterThan(0);
     expect(
       officialRate.parameters?.find((parameter) => parameter.name === "date")
     ).toMatchObject({
@@ -115,6 +292,20 @@ describe("OpenAPI documentation", () => {
       "400",
       "503",
     ]);
+
+    const operationIds = Object.values(document.paths).flatMap(({ get }) =>
+      get?.operationId ? [get.operationId] : []
+    );
+    expect(new Set(operationIds).size).toBe(operationIds.length);
+    expect(document.components.schemas.Error.required?.sort()).toEqual([
+      "code",
+      "error",
+      "hint",
+      "message",
+    ]);
+    expect(
+      Object.keys(document.components.schemas.Error.properties ?? {}).sort()
+    ).toEqual(["code", "error", "hint", "message"]);
   });
 
   test("serves an interactive Swagger UI", async () => {
@@ -129,6 +320,18 @@ describe("OpenAPI documentation", () => {
 });
 
 describe("GET /exchanges upstream isolation", () => {
+  test("returns a structured 400 error for an invalid sort", async () => {
+    const response = await app.request("/exchanges?sort=unknown");
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Invalid sort criteria",
+      code: "INVALID_SORT",
+      message: "Invalid sort criteria",
+      hint: "Use sort=buy or sort=sell.",
+    });
+  });
+
   test("returns 503 when every provider fails", async () => {
     useFetch(async () => {
       throw new Error("Provider unavailable in test");
@@ -140,6 +343,9 @@ describe("GET /exchanges upstream isolation", () => {
     expect(response.headers.get("Cache-Control")).toBeNull();
     expect(await response.json()).toEqual({
       error: "Exchange rates are temporarily unavailable",
+      code: "EXCHANGE_RATES_UNAVAILABLE",
+      message: "Exchange rates are temporarily unavailable",
+      hint: "Retry later; upstream providers may be temporarily unavailable.",
     });
   });
 
@@ -350,7 +556,12 @@ describe("GET /official-rate", () => {
     const response = await app.request("/official-rate?date=2025-02-30");
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Invalid date" });
+    expect(await response.json()).toEqual({
+      error: "Invalid date",
+      code: "INVALID_DATE",
+      message: "Invalid date",
+      hint: "Use a real, non-future date in YYYY-MM-DD format.",
+    });
   });
 
   test("rejects a future date", async () => {
@@ -361,7 +572,12 @@ describe("GET /official-rate", () => {
     const response = await app.request("/official-rate?date=2999-01-01");
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Invalid date" });
+    expect(await response.json()).toEqual({
+      error: "Invalid date",
+      code: "INVALID_DATE",
+      message: "Invalid date",
+      hint: "Use a real, non-future date in YYYY-MM-DD format.",
+    });
   });
 
   test("returns 503 when SUNAT is unavailable", async () => {
@@ -375,6 +591,9 @@ describe("GET /official-rate", () => {
     expect(response.headers.get("Cache-Control")).toBeNull();
     expect(await response.json()).toEqual({
       error: "Official exchange rate is temporarily unavailable",
+      code: "OFFICIAL_RATE_UNAVAILABLE",
+      message: "Official exchange rate is temporarily unavailable",
+      hint: "Retry later or request a different historical date.",
     });
   });
 });
