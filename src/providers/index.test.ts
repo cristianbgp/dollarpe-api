@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { cambiomundialProvider } from "./cambiomundial";
 import { providers } from "./index";
 
 const originalFetch = globalThis.fetch;
@@ -10,7 +11,20 @@ const fixtures: Array<[string, unknown]> = [
   ["decamoney", { exchange_rate: { buy: 3.35, sell: 3.45 } }],
   ["tucambista", { bidRate: 3.36, offerRate: 3.46 }],
   ["chapacambios", [{ MontoCompra: "3.37", MontoVenta: "3.47" }]],
-  ["cambiomundial", [{ buy: "3.38", sell: "3.48" }]],
+  [
+    "cambiomundial",
+    [
+      {
+        idTasaCambio: 20400,
+        buy: 3.38,
+        sell: 3.48,
+        tipoTasa: "REGULAR",
+        fecha: "2026-08-28T13:31:42",
+        createdAt: "2026-08-28T13:31:42",
+        updatedAt: "2026-08-28T13:31:42",
+      },
+    ],
+  ],
   [
     "listarTipoCambio",
     [
@@ -40,6 +54,37 @@ const useFetch = (
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+});
+
+test("Cambio Mundial selects the regular rate regardless of response order", async () => {
+  useFetch(async () =>
+    Response.json([
+      {
+        idTasaCambio: 20401,
+        buy: 3.1,
+        sell: 3.2,
+        tipoTasa: "DIFERENCIADA",
+        fecha: "2026-08-28T13:31:42",
+        createdAt: "2026-08-28T13:31:42",
+        updatedAt: "2026-08-28T13:31:42",
+      },
+      {
+        idTasaCambio: 20400,
+        buy: 3.354,
+        sell: 3.36,
+        tipoTasa: "REGULAR",
+        fecha: "2026-08-28T13:31:42",
+        createdAt: "2026-08-28T13:31:42",
+        updatedAt: "2026-08-28T13:31:42",
+      },
+    ])
+  );
+
+  expect(await cambiomundialProvider.fetchRate()).toEqual({
+    buy: 3.354,
+    sell: 3.36,
+    pageUrl: "https://www.cambiomundial.com",
+  });
 });
 
 test("maps every provider response to a normalized exchange rate", async () => {

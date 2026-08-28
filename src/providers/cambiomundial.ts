@@ -1,18 +1,27 @@
 import { defineProvider } from "./fetch-provider";
 
-type CambioMundialResponse = [
-  {
-    buy: string | number;
-    sell: string | number;
-  },
-];
+type CambioMundialRate = {
+  idTasaCambio: number;
+  buy: number;
+  sell: number;
+  tipoTasa: "REGULAR" | "DIFERENCIADA";
+  fecha: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CambioMundialResponse = CambioMundialRate[];
 
 export const cambiomundialProvider = defineProvider<CambioMundialResponse>({
   name: "cambiomundial",
   url: "https://www.cambiomundial.com/backend/tasaCambio/daily",
   pageUrl: "https://www.cambiomundial.com",
-  parse: ([response]) => ({
-    buy: Number(response.buy),
-    sell: Number(response.sell),
-  }),
+  parse: (response) => {
+    const regularRate = response.find(({ tipoTasa }) => tipoTasa === "REGULAR");
+
+    return {
+      buy: regularRate?.buy ?? Number.NaN,
+      sell: regularRate?.sell ?? Number.NaN,
+    };
+  },
 });
