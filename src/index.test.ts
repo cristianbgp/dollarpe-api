@@ -53,6 +53,79 @@ test("GET / lists endpoints with and without query parameters", async () => {
   expect(body).toContain("GET /exchanges?sort=buy|sell");
   expect(body).toContain("GET /official-rate\n");
   expect(body).toContain("GET /official-rate?date=YYYY-MM-DD");
+  expect(body).toContain("GET /openapi.json");
+  expect(body).toContain("GET /docs");
+});
+
+describe("OpenAPI documentation", () => {
+  test("describes every public API route and query parameter", async () => {
+    const response = await app.request("/openapi.json");
+
+    expect(response.status).toBe(200);
+    const document = (await response.json()) as {
+      openapi: string;
+      paths: Record<
+        string,
+        {
+          get?: {
+            parameters?: Array<{
+              name: string;
+              in: string;
+              required: boolean;
+              schema: Record<string, unknown>;
+            }>;
+            responses: Record<string, unknown>;
+          };
+        }
+      >;
+    };
+
+    expect(document.openapi).toBe("3.1.0");
+    expect(Object.keys(document.paths).sort()).toEqual([
+      "/exchanges",
+      "/official-rate",
+    ]);
+
+    const exchanges = document.paths["/exchanges"].get!;
+    expect(
+      exchanges.parameters?.find((parameter) => parameter.name === "sort")
+    ).toMatchObject({
+      name: "sort",
+      in: "query",
+      required: false,
+      schema: { type: "string", enum: ["buy", "sell"] },
+    });
+    expect(Object.keys(exchanges.responses).sort()).toEqual([
+      "200",
+      "400",
+      "503",
+    ]);
+
+    const officialRate = document.paths["/official-rate"].get!;
+    expect(
+      officialRate.parameters?.find((parameter) => parameter.name === "date")
+    ).toMatchObject({
+      name: "date",
+      in: "query",
+      required: false,
+      schema: { type: "string", format: "date" },
+    });
+    expect(Object.keys(officialRate.responses).sort()).toEqual([
+      "200",
+      "400",
+      "503",
+    ]);
+  });
+
+  test("serves an interactive Swagger UI", async () => {
+    const response = await app.request("/docs");
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toContain("text/html");
+    expect(body.toLowerCase()).toContain("swagger");
+    expect(body).toContain("/openapi.json");
+  });
 });
 
 describe("GET /exchanges upstream isolation", () => {

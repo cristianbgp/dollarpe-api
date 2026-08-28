@@ -29,6 +29,10 @@ bun run check
 
 ## Endpoints
 
+Interactive Swagger documentation is available at [`/docs`](https://dollarpe-api.cristianbgp.com/docs).
+The generated OpenAPI 3.1 document is available at
+[`/openapi.json`](https://dollarpe-api.cristianbgp.com/openapi.json).
+
 ### `GET /exchanges`
 
 Get the current rates from every available provider:
