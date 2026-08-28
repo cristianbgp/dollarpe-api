@@ -1,7 +1,8 @@
 {
   "name": "dollarpe-api",
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
+    "dev": "wrangler dev --port 3000",
+    "dev:bun": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
