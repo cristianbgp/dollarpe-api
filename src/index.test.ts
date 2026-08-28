@@ -44,6 +44,17 @@ beforeEach(() => {
   consoleErrorSpy = spyOn(console, "error").mockImplementation(() => {});
 });
 
+test("GET / lists endpoints with and without query parameters", async () => {
+  const response = await app.request("/");
+  const body = await response.text();
+
+  expect(response.status).toBe(200);
+  expect(body).toContain("GET /exchanges\n");
+  expect(body).toContain("GET /exchanges?sort=buy|sell");
+  expect(body).toContain("GET /official-rate\n");
+  expect(body).toContain("GET /official-rate?date=YYYY-MM-DD");
+});
+
 describe("GET /exchanges upstream isolation", () => {
   test("returns 503 when every provider fails", async () => {
     useFetch(async () => {
@@ -204,5 +215,93 @@ describe("GET /exchanges sorting", () => {
       "kambista",
       "rextie",
     ]);
+  });
+});
+
+describe("GET /official-rate", () => {
+  test("returns the official SUNAT exchange rate", async () => {
+    useFetch(async () =>
+      jsonResponse([
+        { fecPublica: "01/01/2000", valTipo: "3.340", codTipo: "C" },
+        { fecPublica: "01/01/2000", valTipo: "3.348", codTipo: "V" },
+      ])
+    );
+
+    const response = await app.request("/official-rate");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe(
+      "public, s-maxage=3600, stale-while-revalidate=86400"
+    );
+    expect(await response.json()).toEqual({
+      source: "sunat",
+      date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      buy: 3.34,
+      sell: 3.348,
+      pageUrl: "https://e-consulta.sunat.gob.pe/cl-at-ittipcam/tcS01Alias",
+    });
+  });
+
+  test("queries the SUNAT month for the requested date", async () => {
+    let requestBody: unknown;
+    useFetch(async (_input, init) => {
+      requestBody = JSON.parse(String(init?.body));
+      return jsonResponse([
+        { fecPublica: "14/11/2025", valTipo: "3.360", codTipo: "C" },
+        { fecPublica: "14/11/2025", valTipo: "3.370", codTipo: "V" },
+        { fecPublica: "17/11/2025", valTipo: "3.365", codTipo: "C" },
+        { fecPublica: "17/11/2025", valTipo: "3.374", codTipo: "V" },
+        { fecPublica: "20/11/2025", valTipo: "3.400", codTipo: "C" },
+        { fecPublica: "20/11/2025", valTipo: "3.410", codTipo: "V" },
+      ]);
+    });
+
+    const response = await app.request("/official-rate?date=2025-11-17");
+
+    expect(response.status).toBe(200);
+    expect(requestBody).toEqual({ anio: 2025, mes: 10, token: "x" });
+    expect(await response.json()).toEqual({
+      source: "sunat",
+      date: "2025-11-17",
+      buy: 3.365,
+      sell: 3.374,
+      pageUrl: "https://e-consulta.sunat.gob.pe/cl-at-ittipcam/tcS01Alias",
+    });
+  });
+
+  test("rejects an impossible calendar date", async () => {
+    useFetch(async () => {
+      throw new Error("fetch must not be called for an invalid date");
+    });
+
+    const response = await app.request("/official-rate?date=2025-02-30");
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid date" });
+  });
+
+  test("rejects a future date", async () => {
+    useFetch(async () => {
+      throw new Error("fetch must not be called for a future date");
+    });
+
+    const response = await app.request("/official-rate?date=2999-01-01");
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid date" });
+  });
+
+  test("returns 503 when SUNAT is unavailable", async () => {
+    useFetch(async () => {
+      throw new Error("SUNAT unavailable in test");
+    });
+
+    const response = await app.request("/official-rate");
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBeNull();
+    expect(await response.json()).toEqual({
+      error: "Official exchange rate is temporarily unavailable",
+    });
   });
 });

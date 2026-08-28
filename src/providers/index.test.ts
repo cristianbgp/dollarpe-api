@@ -11,6 +11,13 @@ const fixtures: Array<[string, unknown]> = [
   ["tucambista", { bidRate: 3.36, offerRate: 3.46 }],
   ["chapacambios", [{ MontoCompra: "3.37", MontoVenta: "3.47" }]],
   ["cambiomundial", [{ buy: "3.38", sell: "3.48" }]],
+  [
+    "listarTipoCambio",
+    [
+      { fecPublica: "01/01/2000", valTipo: "3.39", codTipo: "C" },
+      { fecPublica: "01/01/2000", valTipo: "3.49", codTipo: "V" },
+    ],
+  ],
 ];
 
 const responseForUrl = (url: string) => {
@@ -69,6 +76,11 @@ test("maps every provider response to a normalized exchange rate", async () => {
       buy: 3.38,
       sell: 3.48,
       pageUrl: "https://www.cambiomundial.com",
+    },
+    sunat: {
+      buy: 3.39,
+      sell: 3.49,
+      pageUrl: "https://e-consulta.sunat.gob.pe/cl-at-ittipcam/tcS01Alias",
     },
   });
 });
@@ -154,6 +166,13 @@ test("uses each provider's required HTTP contract", async () => {
       method: "GET",
       body: null,
       contentType: null,
+      subscriptionKey: null,
+    },
+    {
+      url: "https://e-consulta.sunat.gob.pe/cl-at-ittipcam/tcS01Alias/listarTipoCambio",
+      method: "POST",
+      body: expect.stringContaining('"token":"x"'),
+      contentType: "application/json; charset=utf-8",
       subscriptionKey: null,
     },
   ]);
