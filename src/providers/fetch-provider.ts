@@ -6,6 +6,13 @@ import type {
 
 const UPSTREAM_TIMEOUT_MS = 5_000;
 
+export class ProviderRequestError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message);
+    this.name = "ProviderRequestError";
+  }
+}
+
 export function defineProvider<TResponse>({
   name,
   url,
@@ -22,8 +29,9 @@ export function defineProvider<TResponse>({
       });
 
       if (!response.ok) {
-        throw new Error(
-          `${name} request failed with status ${response.status}`
+        throw new ProviderRequestError(
+          `${name} request failed with status ${response.status}`,
+          response.status
         );
       }
 
@@ -37,7 +45,9 @@ export function defineProvider<TResponse>({
         !Number.isFinite(sell) ||
         sell <= 0
       ) {
-        throw new Error(`${name} returned invalid exchange rates`);
+        throw new ProviderRequestError(
+          `${name} returned invalid exchange rates`
+        );
       }
 
       return { buy, sell, pageUrl };

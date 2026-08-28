@@ -1,5 +1,6 @@
 import { providers } from "./providers";
 import type { DataResult, ProviderName } from "./providers";
+import { ProviderRequestError } from "./providers/fetch-provider";
 import sortCriteriaGenerator from "./utils/sort-criteria-generator";
 
 export type ExchangeSort = "buy" | "sell";
@@ -18,7 +19,25 @@ export async function getAllData(
   sort: ExchangeSort = "buy"
 ): Promise<DataEntry[]> {
   const settledRates = await Promise.allSettled(
-    providers.map((provider) => provider.fetchRate())
+    providers.map(async (provider) => {
+      const startedAt = Date.now();
+
+      try {
+        return await provider.fetchRate();
+      } catch (error) {
+        console.error({
+          event: "provider_fetch_failed",
+          provider: provider.name,
+          ...(error instanceof ProviderRequestError &&
+          error.status !== undefined
+            ? { status: error.status }
+            : {}),
+          durationMs: Date.now() - startedAt,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    })
   );
 
   const rates = settledRates.flatMap((result, index): DataEntry[] => {

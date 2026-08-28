@@ -37,7 +37,8 @@ Use the `sort` query parameter to order the best buy or sell rates:
 
 Each provider has a five-second timeout. Providers that time out, return an
 unsuccessful HTTP status, or return invalid rates are omitted without failing
-the complete response.
+the complete response. If every provider fails, the endpoint returns `503`
+instead of an empty successful response.
 
 Rates are collected from:
 

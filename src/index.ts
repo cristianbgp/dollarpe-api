@@ -24,6 +24,12 @@ app.get("/exchanges", async (c) => {
   }
 
   const result = await getAllData(sort);
+
+  if (result.length === 0) {
+    c.status(503);
+    return c.json({ error: "Exchange rates are temporarily unavailable" });
+  }
+
   c.header("Cache-Control", "public, s-maxage=60, stale-while-revalidate=30");
   c.status(200);
   return c.json(result);

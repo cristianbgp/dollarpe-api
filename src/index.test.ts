@@ -1,7 +1,15 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test,
+} from "bun:test";
 import app from "./index";
 
 const originalFetch = globalThis.fetch;
+let consoleErrorSpy: ReturnType<typeof spyOn> | undefined;
 
 const useFetch = (
   implementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>
@@ -28,9 +36,29 @@ const kambistaResponse = {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  consoleErrorSpy?.mockRestore();
+  consoleErrorSpy = undefined;
+});
+
+beforeEach(() => {
+  consoleErrorSpy = spyOn(console, "error").mockImplementation(() => {});
 });
 
 describe("GET /exchanges upstream isolation", () => {
+  test("returns 503 when every provider fails", async () => {
+    useFetch(async () => {
+      throw new Error("Provider unavailable in test");
+    });
+
+    const response = await app.request("/exchanges");
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBeNull();
+    expect(await response.json()).toEqual({
+      error: "Exchange rates are temporarily unavailable",
+    });
+  });
+
   test("omits an upstream response with a failing HTTP status", async () => {
     useFetch(async (input) => {
       const url = String(input);
