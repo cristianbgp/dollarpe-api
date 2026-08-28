@@ -16,6 +16,7 @@
  * treated as a required dependency of `/exchanges`.
  */
 import { ProviderRequestError } from "./fetch-provider";
+import { withProviderCache } from "./cache";
 import type { DataResult, ExchangeProvider } from "./types";
 
 export type SunatExchangeRateRow = {
@@ -42,6 +43,7 @@ const PAGE_URL =
   "https://e-consulta.sunat.gob.pe/cl-at-ittipcam/tcS01Alias";
 const ENDPOINT = `${PAGE_URL}/listarTipoCambio`;
 const UPSTREAM_TIMEOUT_MS = 5_000;
+const CACHE_TTL_SECONDS = 3_600;
 
 const headers = {
   "User-Agent":
@@ -169,28 +171,48 @@ export async function fetchSunatOfficialRate(
     throw new InvalidSunatDateError();
   }
 
-  const [year, month] = isoDate.split("-").map(Number);
-  let rows = await fetchMonth(year, month);
-  let rate = selectSunatRate(rows, isoDate);
+  return withProviderCache({
+    key: `sunat-${isoDate}`,
+    ttlSeconds: CACHE_TTL_SECONDS,
+    validate: (value): value is SunatOfficialRate => {
+      if (!value || typeof value !== "object") return false;
+      const rate = value as Partial<SunatOfficialRate>;
 
-  if (!rate) {
-    // The requested date can precede the first publication of its month.
-    const previousMonth = month === 1 ? 12 : month - 1;
-    const previousYear = month === 1 ? year - 1 : year;
-    rows = await fetchMonth(previousYear, previousMonth);
-    rate = selectSunatRate(rows, isoDate);
-  }
+      return (
+        rate.source === "sunat" &&
+        rate.date === isoDate &&
+        Number.isFinite(rate.buy) &&
+        rate.buy! > 0 &&
+        Number.isFinite(rate.sell) &&
+        rate.sell! > 0 &&
+        rate.pageUrl === PAGE_URL
+      );
+    },
+    load: async () => {
+      const [year, month] = isoDate.split("-").map(Number);
+      let rows = await fetchMonth(year, month);
+      let rate = selectSunatRate(rows, isoDate);
 
-  if (!rate) {
-    throw new ProviderRequestError("sunat returned invalid exchange rates");
-  }
+      if (!rate) {
+        // The requested date can precede the first publication of its month.
+        const previousMonth = month === 1 ? 12 : month - 1;
+        const previousYear = month === 1 ? year - 1 : year;
+        rows = await fetchMonth(previousYear, previousMonth);
+        rate = selectSunatRate(rows, isoDate);
+      }
 
-  return {
-    source: "sunat",
-    date: isoDate,
-    ...rate,
-    pageUrl: PAGE_URL,
-  };
+      if (!rate) {
+        throw new ProviderRequestError("sunat returned invalid exchange rates");
+      }
+
+      return {
+        source: "sunat",
+        date: isoDate,
+        ...rate,
+        pageUrl: PAGE_URL,
+      };
+    },
+  });
 }
 
 export const sunatProvider: ExchangeProvider = {

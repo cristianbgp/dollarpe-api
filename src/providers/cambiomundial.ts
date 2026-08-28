@@ -16,6 +16,7 @@ export const cambiomundialProvider = defineProvider<CambioMundialResponse>({
   name: "cambiomundial",
   url: "https://www.cambiomundial.com/backend/tasaCambio/daily",
   pageUrl: "https://www.cambiomundial.com",
+  cacheTtlSeconds: 300,
   parse: (response) => {
     const regularRate = response.find(({ tipoTasa }) => tipoTasa === "REGULAR");
 

@@ -9,6 +9,7 @@ export const rextieProvider = defineProvider<RextieResponse>({
   name: "rextie",
   url: "https://app.rextie.com/api/v1/fxrates/rate/",
   pageUrl: "https://www.rextie.com/",
+  cacheTtlSeconds: 60,
   request: { method: "POST" },
   parse: (response) => ({
     buy: Number(response.fx_rate_buy),

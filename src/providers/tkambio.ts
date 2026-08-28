@@ -9,6 +9,7 @@ export const tkambioProvider = defineProvider<TKambioResponse>({
   name: "tkambio",
   url: "https://tkambio.com/wp-admin/admin-ajax.php",
   pageUrl: "https://tkambio.com/",
+  cacheTtlSeconds: 60,
   request: {
     method: "POST",
     body: "action=get_exchange_rate",

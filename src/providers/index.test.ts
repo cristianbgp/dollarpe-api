@@ -1,8 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { cambiomundialProvider } from "./cambiomundial";
 import { providers } from "./index";
+import { fetchSunatOfficialRate } from "./sunat";
 
 const originalFetch = globalThis.fetch;
+const originalCaches = Object.getOwnPropertyDescriptor(globalThis, "caches");
 const fixtures: Array<[string, unknown]> = [
   ["rextie", { fx_rate_buy: "3.31", fx_rate_sell: "3.41" }],
   ["kambista", { tc: { bid: 3.32, ask: 3.42 } }],
@@ -52,8 +54,33 @@ const useFetch = (
   });
 };
 
+const useCache = () => {
+  const entries = new Map<string, Response>();
+
+  Object.defineProperty(globalThis, "caches", {
+    configurable: true,
+    value: {
+      default: {
+        async match(request: Request) {
+          return entries.get(request.url)?.clone();
+        },
+        async put(request: Request, response: Response) {
+          entries.set(request.url, response.clone());
+        },
+      },
+    },
+  });
+
+  return entries;
+};
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  if (originalCaches) {
+    Object.defineProperty(globalThis, "caches", originalCaches);
+  } else {
+    Reflect.deleteProperty(globalThis, "caches");
+  }
 });
 
 test("Cambio Mundial selects the regular rate regardless of response order", async () => {
@@ -85,6 +112,87 @@ test("Cambio Mundial selects the regular rate regardless of response order", asy
     sell: 3.36,
     pageUrl: "https://www.cambiomundial.com",
   });
+});
+
+test("commercial providers reuse a validated rate for 60 seconds", async () => {
+  let upstreamRequests = 0;
+  const cache = useCache();
+  useFetch(async (input) => {
+    upstreamRequests += 1;
+    return responseForUrl(String(input));
+  });
+
+  const commercialProviders = providers.filter(
+    ({ name }) => name !== "cambiomundial" && name !== "sunat"
+  );
+  const first = await Promise.all(
+    commercialProviders.map((provider) => provider.fetchRate())
+  );
+  const second = await Promise.all(
+    commercialProviders.map((provider) => provider.fetchRate())
+  );
+
+  expect(second).toEqual(first);
+  expect(upstreamRequests).toBe(7);
+  expect(
+    [...cache.values()].map((response) =>
+      response.headers.get("Cache-Control")
+    )
+  ).toEqual(
+    Array.from({ length: 7 }, () => "public, max-age=60")
+  );
+});
+
+test("Cambio Mundial reuses a validated rate for 5 minutes", async () => {
+  let upstreamRequests = 0;
+  const cache = useCache();
+  useFetch(async (input) => {
+    upstreamRequests += 1;
+    return responseForUrl(String(input));
+  });
+
+  await cambiomundialProvider.fetchRate();
+  await cambiomundialProvider.fetchRate();
+
+  expect(upstreamRequests).toBe(1);
+  expect([...cache.values()][0]?.headers.get("Cache-Control")).toBe(
+    "public, max-age=300"
+  );
+});
+
+test("provider errors are not cached", async () => {
+  let upstreamRequests = 0;
+  useCache();
+  useFetch(async (input) => {
+    upstreamRequests += 1;
+    if (upstreamRequests === 1) return new Response(null, { status: 429 });
+    return responseForUrl(String(input));
+  });
+
+  await expect(cambiomundialProvider.fetchRate()).rejects.toThrow(
+    "cambiomundial request failed with status 429"
+  );
+  await cambiomundialProvider.fetchRate();
+
+  expect(upstreamRequests).toBe(2);
+});
+
+test("SUNAT caches its validated official rate despite using POST upstream", async () => {
+  let upstreamRequests = 0;
+  const cache = useCache();
+  useFetch(async (input) => {
+    upstreamRequests += 1;
+    return responseForUrl(String(input));
+  });
+
+  const first = await fetchSunatOfficialRate("2000-01-01");
+  const second = await fetchSunatOfficialRate("2000-01-01");
+
+  expect(second).toEqual(first);
+  expect(upstreamRequests).toBe(1);
+  expect([...cache.values()][0]?.headers.get("Cache-Control")).toBe(
+    "public, max-age=3600"
+  );
 });
 
 test("maps every provider response to a normalized exchange rate", async () => {

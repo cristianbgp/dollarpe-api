@@ -12,6 +12,7 @@ export const tucambistaProvider = defineProvider<TuCambistaResponse>({
   name: "tucambista",
   url: "https://apim.tucambista.pe/api/rates",
   pageUrl: "https://tucambista.pe/",
+  cacheTtlSeconds: 60,
   request: {
     headers: {
       "Ocp-Apim-Subscription-Key": PUBLIC_SUBSCRIPTION_KEY,

@@ -28,5 +28,6 @@ export type ProviderDefinition<TResponse> = {
   url: string;
   pageUrl: string;
   request?: Omit<RequestInit, "signal">;
+  cacheTtlSeconds: number;
   parse: (response: TResponse) => Pick<DataResult, "buy" | "sell">;
 };
