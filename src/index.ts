@@ -1,14 +1,21 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import sortCriteriaGenerator from "./utils/sort-criteria-generator";
-import { fetchHTMLAndExtract } from "./utils/fetch-html";
 
-const buyCriteriaDesc = sortCriteriaGenerator((item) => item[1].buy, {
-  desc: true,
-});
-const sellCriteriaDesc = sortCriteriaGenerator((item) => item[1].sell, {
-  asc: true,
-});
+const UPSTREAM_TIMEOUT_MS = 5_000;
+const TUCAMBISTA_PUBLIC_SUBSCRIPTION_KEY =
+  "e4b6947d96a940e7bb8b39f462bcc56d;product=tucambista-production";
+
+type DataEntry = [string, DataResult];
+
+const buyCriteriaDesc = sortCriteriaGenerator<DataEntry>(
+  ([, item]) => item.buy,
+  { desc: true }
+);
+const sellCriteriaDesc = sortCriteriaGenerator<DataEntry>(
+  ([, item]) => item.sell,
+  { asc: true }
+);
 
 export type DataResult = {
   buy: number;
@@ -37,9 +44,22 @@ async function getData({
     method,
     headers,
     body,
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
+
+  if (!response.ok) {
+    throw new Error(`Upstream request failed with status ${response.status}`);
+  }
+
   const data = await response.json();
-  return { buy: accessorToBuy(data), sell: accessorToSell(data), pageUrl };
+  const buy = Number(accessorToBuy(data));
+  const sell = Number(accessorToSell(data));
+
+  if (!Number.isFinite(buy) || buy <= 0 || !Number.isFinite(sell) || sell <= 0) {
+    throw new Error("Upstream returned invalid exchange rates");
+  }
+
+  return { buy, sell, pageUrl };
 }
 
 async function getAllData(sort: "buy" | "sell" = "buy") {
@@ -83,8 +103,7 @@ async function getAllData(sort: "buy" | "sell" = "buy") {
     getData({
       url: "https://apim.tucambista.pe/api/rates",
       headers: {
-        "Ocp-Apim-Subscription-Key":
-          "e4b6947d96a940e7bb8b39f462bcc56d;product=tucambista-production",
+        "Ocp-Apim-Subscription-Key": TUCAMBISTA_PUBLIC_SUBSCRIPTION_KEY,
       },
       accessorToBuy: (data) => Number(data.bidRate),
       accessorToSell: (data) => Number(data.offerRate),
@@ -112,13 +131,13 @@ async function getAllData(sort: "buy" | "sell" = "buy") {
     dollar.decamoney,
     dollar.tucambista,
     dollar.chapacambio,
-    dollar.cambiomundial
+    dollar.cambiomundial,
   ] = allData.map((result) =>
     result.status === "fulfilled" ? result.value : undefined
   );
   const sortCriteria = sort === "buy" ? buyCriteriaDesc : sellCriteriaDesc;
-  let result = Object.entries(dollar)
-    .filter(([, value]) => value !== undefined)
+  const result = Object.entries(dollar)
+    .filter((entry): entry is DataEntry => entry[1] !== undefined)
     .sort(sortCriteria);
   return result;
 }
@@ -137,7 +156,7 @@ app.get("/exchanges", async (c) => {
   }: {
     sort?: "buy" | "sell";
   } = c.req.query();
-  if(sort !== "buy" && sort !== "sell") {
+  if (sort !== "buy" && sort !== "sell") {
     c.status(400);
     return c.json({ error: "Invalid sort criteria" });
   }

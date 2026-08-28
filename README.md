@@ -1,34 +1,45 @@
 # dollarpe-api
 
-Get dollar to peruvian sol exchange rate
+Get US dollar to Peruvian sol exchange rates from several online exchanges.
 
 [https://dollarpe-api.cristianbgp.com/exchanges](https://dollarpe-api.cristianbgp.com/exchanges)
 
 ## Development
 
 To install dependencies:
+
 ```sh
-bun install
+bun install --frozen-lockfile
 ```
 
 To run:
+
 ```sh
 bun run dev
 ```
 
-open http://localhost:3000
+Open http://localhost:3000.
+
+To run the type checker and test suite:
+
+```sh
+bun run check
+```
 
 ## Endpoints
 
 `/exchanges`
 
-You can add sorting to get the better values for buy or sell with query param sort
+Use the `sort` query parameter to order the best buy or sell rates:
 
-`/exchanges?sort=buy` DEFAULT
+- `/exchanges?sort=buy` (default): highest buy rate first
+- `/exchanges?sort=sell`: lowest sell rate first
 
-`/exchanges?sort=sell`
+Each provider has a five-second timeout. Providers that time out, return an
+unsuccessful HTTP status, or return invalid rates are omitted without failing
+the complete response.
 
-This includes exchanges from:
+Rates are collected from:
 
 - Rextie
 - Kambista
@@ -37,3 +48,4 @@ This includes exchanges from:
 - Decamoney
 - TuCambista
 - ChapaCambio
+- Cambio Mundial

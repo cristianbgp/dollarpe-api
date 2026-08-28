@@ -1,8 +1,8 @@
-export default function sortCriteriaGenerator(
-  accessor: (obj: any) => string | number,
+export default function sortCriteriaGenerator<T>(
+  accessor: (obj: T) => string | number,
   { asc = true, desc = false }
 ) {
-  return (a: any, b: any) => {
+  return (a: T, b: T) => {
     const textA = accessor(a);
     const textB = accessor(b);
     if (typeof textA === "number" && typeof textB === "number") {

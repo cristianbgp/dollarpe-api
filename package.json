@@ -3,13 +3,18 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "check": "bun run typecheck && bun test",
     "deploy": "wrangler deploy --minify"
   },
   "dependencies": {
     "hono": "^4.6.1"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "1.4.0",
+    "@types/node": "26.4.0",
+    "typescript": "^7.0.2",
     "wrangler": "^4.20.3"
   }
 }
