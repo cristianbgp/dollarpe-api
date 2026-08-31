@@ -1,3 +1,10 @@
+> [!IMPORTANT]
+> This repository has been archived and is no longer maintained.
+>
+> Development continues in the
+> [dollarpe monorepo](https://github.com/cristianbgp/dollarpe/tree/main/apps/api).
+> This repository remains available as a historical record.
+
 # dollarpe-api
 
 Get US dollar to Peruvian sol exchange rates from online exchanges and the
